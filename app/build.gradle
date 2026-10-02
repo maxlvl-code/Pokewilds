@@ -1,0 +1,40 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.maxlvl.pokewildsandroid'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.maxlvl.pokewildsandroid'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.8.11-android-prototype1'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    packaging {
+        resources.excludes += ['META-INF/INDEX.LIST','META-INF/*.SF','META-INF/*.RSA','META-INF/*.DSA']
+    }
+}
+def gdxVersion = '1.11.0'
+def controllersVersion = '2.2.1'
+dependencies {
+    implementation files('libs/pokewilds-android-core.jar')
+    implementation "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-box2d:$gdxVersion"
+    implementation "com.badlogicgames.gdx-controllers:gdx-controllers-core:$controllersVersion"
+    implementation "com.badlogicgames.gdx-controllers:gdx-controllers-android:$controllersVersion"
+    implementation "org.slf4j:slf4j-nop:1.7.36"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-armeabi-v7a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-arm64-v8a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-x86_64"
+    runtimeOnly "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-armeabi-v7a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-arm64-v8a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-x86_64"
+}
