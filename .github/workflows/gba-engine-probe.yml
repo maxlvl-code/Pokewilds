@@ -1,0 +1,24 @@
+name: GBA Engine Probe
+on:
+  push:
+    branches: [ "prototype/seeded-wilderness" ]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pokewilds
+      - name: Fetch pinned pokeemerald-expansion
+        run: |
+          git clone --depth 1 --branch expansion/1.17.0 https://github.com/rh-hideout/pokeemerald-expansion.git engine
+      - name: Inspect build prerequisites
+        run: |
+          echo "=== top level ==="
+          ls -la engine | head -80
+          echo "=== install references ==="
+          grep -RniE "devkitARM|baserom|agbcc|modern|toolchain" engine/INSTALL.md engine/README.md engine/Makefile 2>/dev/null | head -200 || true
+          echo "=== available setup/build scripts ==="
+          find engine -maxdepth 2 -type f \( -name "*.sh" -o -name "Makefile" -o -name "*install*" \) | sort | head -200
