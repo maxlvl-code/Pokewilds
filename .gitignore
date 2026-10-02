@@ -1,0 +1,7 @@
+.gradle/
+build-input/
+app/build/
+app/libs/pokewilds-android-core.jar
+app/src/main/assets/
+pokewilds-windows64.zip
+*.apk
