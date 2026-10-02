@@ -18,7 +18,7 @@ if '#include "pokewilds/game.h"' not in s:
     s=s.replace(needle, needle+'\n#include "pokewilds/game.h"')
 marker='EWRAM_DATA bool8 gEnableContestDebugging = FALSE;'
 if 'sPokeWildsGameState' not in s:
-    s=s.replace(marker, marker+'\nEWRAM_DATA static PwGameState sPokeWildsGameState = {0};')
+    s=s.replace(marker, marker+'\nEWRAM_DATA static struct PwGame sPokeWildsGameState = {0};')
 old='''static void WarpToTruck(void)
 {
     if (IS_FRLG)
