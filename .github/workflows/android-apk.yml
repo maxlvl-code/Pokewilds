@@ -1,0 +1,48 @@
+name: Build PokéWilds Android APK
+on:
+  push:
+    branches: [android-native-port]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Download official PokéWilds 0.8.11 Windows package
+        run: curl -fL --retry 3 -o pokewilds-windows64.zip https://github.com/SheerSt/pokewilds/releases/download/v0.8.11/pokewilds-windows64.zip
+
+      - name: Extract game assets and locate desktop JAR
+        run: python3 tools/prepare_from_zip.py pokewilds-windows64.zip "$GITHUB_WORKSPACE"
+
+      - name: Patch desktop fat JAR into Android core
+        shell: bash
+        run: |
+          JAR=$(find build-input -name pokewilds.jar -print -quit)
+          mkdir -p app/libs
+          javac --add-exports java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED tools/AndroidJarPatcher.java
+          java --add-exports java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED -cp tools AndroidJarPatcher "$JAR" app/libs/pokewilds-android-core.jar
+          ! jdeps --multi-release 17 --ignore-missing-deps -verbose:class -filter:none app/libs/pokewilds-android-core.jar 2>/dev/null | grep '^   com\.pkmngen\.game' | grep -E -- '-> (javax\.swing|java\.awt|org\.lwjgl|oshi\.|shark\.|leakcanary\.|net\.harawata)'
+
+      - name: Build debug APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk PokeWilds-Android-AYN-Thor-v0.8.11-prototype1.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PokeWilds-Android-AYN-Thor-v0.8.11-prototype1
+          path: PokeWilds-Android-AYN-Thor-v0.8.11-prototype1.apk
+          if-no-files-found: error
