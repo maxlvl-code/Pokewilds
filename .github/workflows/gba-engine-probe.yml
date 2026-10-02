@@ -17,6 +17,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libpng-dev pkg-config
+      - name: Overlay Pokewilds core
+        run: |
+          chmod +x pokewilds/scripts/overlay-engine.sh
+          pokewilds/scripts/overlay-engine.sh engine
+          test -f engine/src/pokewilds/world.c
+          test -f engine/src/pokewilds/game.c
       - name: Build engine with modern toolchain
         working-directory: engine
         run: |
