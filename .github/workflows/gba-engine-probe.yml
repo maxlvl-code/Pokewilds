@@ -1,24 +1,33 @@
-name: GBA Engine Probe
+name: GBA Engine Build
 on:
   push:
     branches: [ "prototype/seeded-wilderness" ]
   workflow_dispatch:
 
 jobs:
-  probe:
+  build-gba:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           path: pokewilds
       - name: Fetch pinned pokeemerald-expansion
+        run: git clone --depth 1 --branch expansion/1.17.0 https://github.com/rh-hideout/pokeemerald-expansion.git engine
+      - name: Install ARM toolchain
         run: |
-          git clone --depth 1 --branch expansion/1.17.0 https://github.com/rh-hideout/pokeemerald-expansion.git engine
-      - name: Inspect build prerequisites
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
+      - name: Build engine with modern toolchain
+        working-directory: engine
         run: |
-          echo "=== top level ==="
-          ls -la engine | head -80
-          echo "=== install references ==="
-          grep -RniE "devkitARM|baserom|agbcc|modern|toolchain" engine/INSTALL.md engine/README.md engine/Makefile 2>/dev/null | head -200 || true
-          echo "=== available setup/build scripts ==="
-          find engine -maxdepth 2 -type f \( -name "*.sh" -o -name "Makefile" -o -name "*install*" \) | sort | head -200
+          make modern TOOLCHAIN=/usr -j2
+      - name: Inspect ROM
+        run: |
+          ls -lh engine/pokeemerald.gba engine/pokeemerald.elf
+          sha256sum engine/pokeemerald.gba
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gba-engine-build
+          path: |
+            engine/pokeemerald.gba
+            engine/pokeemerald.elf
