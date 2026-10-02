@@ -3,11 +3,18 @@ on:
   push:
     branches: [ "prototype/seeded-wilderness" ]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   world-core:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and test seeded world core
-        run: make test
+      - name: Build and test portable prototype
+        run: make all
+      - name: Package playable harness
+        run: tar -czf pokewilds-portable-prototype-linux-x64.tar.gz -C build pokewilds-prototype
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pokewilds-portable-prototype-linux-x64
+          path: pokewilds-portable-prototype-linux-x64.tar.gz
