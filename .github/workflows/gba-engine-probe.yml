@@ -1,0 +1,36 @@
+name: Playable GBA Build
+on:
+  push:
+    branches: [ "prototype/seeded-wilderness", "feature/wilderness-playable" ]
+  workflow_dispatch:
+
+jobs:
+  build-gba:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pokewilds
+      - name: Install build and emulator dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libnewlib-dev libpng-dev pkg-config libmgba-dev python3-pil
+      - name: Build pinned engine and wilderness overlay
+        working-directory: pokewilds
+        run: bash scripts/build-gba.sh ../engine
+      - name: Run ROM through mGBA
+        working-directory: pokewilds
+        run: |
+          mkdir -p validation
+          cc -shared -fPIC tools/emulator_bridge.c -o validation/libemulator.so -lmgba
+          python3 tools/check_rebuild.py
+          python3 tools/check_combat.py
+          python3 tools/check_session.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pokewilds-GBA-validation
+          path: |
+            pokewilds/README.md
+            pokewilds/docs/VALIDATION.md
+            pokewilds/validation03/*.json
+            pokewilds/validation03/*.png

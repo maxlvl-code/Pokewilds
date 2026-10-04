@@ -1,0 +1,630 @@
+{
+  "1": {
+    "name": "Bulbasaur",
+    "atlas_index": 0
+  },
+  "2": {
+    "name": "Ivysaur",
+    "atlas_index": 1
+  },
+  "3": {
+    "name": "Venusaur",
+    "atlas_index": 2
+  },
+  "4": {
+    "name": "Charmander",
+    "atlas_index": 3
+  },
+  "5": {
+    "name": "Charmeleon",
+    "atlas_index": 4
+  },
+  "6": {
+    "name": "Charizard",
+    "atlas_index": 5
+  },
+  "7": {
+    "name": "Squirtle",
+    "atlas_index": 6
+  },
+  "8": {
+    "name": "Wartortle",
+    "atlas_index": 7
+  },
+  "9": {
+    "name": "Blastoise",
+    "atlas_index": 8
+  },
+  "10": {
+    "name": "Caterpie",
+    "atlas_index": 9
+  },
+  "11": {
+    "name": "Metapod",
+    "atlas_index": 10
+  },
+  "12": {
+    "name": "Butterfree",
+    "atlas_index": 11
+  },
+  "13": {
+    "name": "Weedle",
+    "atlas_index": 356
+  },
+  "14": {
+    "name": "Kakuna",
+    "atlas_index": 357
+  },
+  "15": {
+    "name": "Beedrill",
+    "atlas_index": 358
+  },
+  "16": {
+    "name": "Pidgey",
+    "atlas_index": 15
+  },
+  "17": {
+    "name": "Pidgeotto",
+    "atlas_index": 16
+  },
+  "18": {
+    "name": "Pidgeot",
+    "atlas_index": 17
+  },
+  "19": {
+    "name": "Rattata",
+    "atlas_index": 359
+  },
+  "20": {
+    "name": "Raticate",
+    "atlas_index": 360
+  },
+  "21": {
+    "name": "Spearow",
+    "atlas_index": 20
+  },
+  "22": {
+    "name": "Fearow",
+    "atlas_index": 21
+  },
+  "23": {
+    "name": "Ekans",
+    "atlas_index": 378
+  },
+  "24": {
+    "name": "Arbok",
+    "atlas_index": 379
+  },
+  "25": {
+    "name": "Pikachu",
+    "atlas_index": 25
+  },
+  "26": {
+    "name": "Raichu",
+    "atlas_index": 26
+  },
+  "27": {
+    "name": "Sandshrew",
+    "atlas_index": 327
+  },
+  "28": {
+    "name": "Sandslash",
+    "atlas_index": 381
+  },
+  "29": {
+    "name": "Nidoran_f",
+    "atlas_index": 468
+  },
+  "30": {
+    "name": "Nidorina",
+    "atlas_index": 469
+  },
+  "31": {
+    "name": "Nidoqueen",
+    "atlas_index": 470
+  },
+  "32": {
+    "name": "Nidoran_m",
+    "atlas_index": 474
+  },
+  "33": {
+    "name": "Nidorino",
+    "crystal_index": 32
+  },
+  "34": {
+    "name": "Nidoking",
+    "atlas_index": 486
+  },
+  "35": {
+    "name": "Clefairy",
+    "atlas_index": 504
+  },
+  "36": {
+    "name": "Clefable",
+    "crystal_index": 35
+  },
+  "37": {
+    "name": "Vulpix",
+    "atlas_index": 37
+  },
+  "38": {
+    "name": "Ninetales",
+    "atlas_index": 38
+  },
+  "39": {
+    "name": "Jigglypuff",
+    "atlas_index": 40
+  },
+  "40": {
+    "name": "Wigglytuff",
+    "atlas_index": 41
+  },
+  "41": {
+    "name": "Zubat",
+    "atlas_index": 42
+  },
+  "42": {
+    "name": "Golbat",
+    "atlas_index": 43
+  },
+  "43": {
+    "name": "Oddish",
+    "atlas_index": 415
+  },
+  "44": {
+    "name": "Gloom",
+    "atlas_index": 409
+  },
+  "45": {
+    "name": "Vileplume",
+    "atlas_index": 411
+  },
+  "46": {
+    "name": "Paras",
+    "atlas_index": 48
+  },
+  "47": {
+    "name": "Parasect",
+    "atlas_index": 49
+  },
+  "48": {
+    "name": "Venonat",
+    "atlas_index": 50
+  },
+  "49": {
+    "name": "Venomoth",
+    "atlas_index": 51
+  },
+  "50": {
+    "name": "Diglett",
+    "atlas_index": 365
+  },
+  "51": {
+    "name": "Dugtrio",
+    "atlas_index": 366
+  },
+  "52": {
+    "name": "Meowth",
+    "crystal_index": 51
+  },
+  "53": {
+    "name": "Persian",
+    "crystal_index": 52
+  },
+  "54": {
+    "name": "Psyduck",
+    "atlas_index": 310
+  },
+  "55": {
+    "name": "Golduck",
+    "atlas_index": 303
+  },
+  "56": {
+    "name": "Mankey",
+    "crystal_index": 55
+  },
+  "57": {
+    "name": "Primeape",
+    "atlas_index": 454
+  },
+  "58": {
+    "name": "Growlithe",
+    "atlas_index": 60
+  },
+  "59": {
+    "name": "Arcanine",
+    "atlas_index": 61
+  },
+  "60": {
+    "name": "Poliwag",
+    "atlas_index": 419
+  },
+  "61": {
+    "name": "Poliwhirl",
+    "atlas_index": 422
+  },
+  "62": {
+    "name": "Poliwrath",
+    "atlas_index": 423
+  },
+  "63": {
+    "name": "Abra",
+    "atlas_index": 65
+  },
+  "64": {
+    "name": "Kadabra",
+    "atlas_index": 66
+  },
+  "65": {
+    "name": "Alakazam",
+    "atlas_index": 67
+  },
+  "66": {
+    "name": "Machop",
+    "atlas_index": 68
+  },
+  "67": {
+    "name": "Machoke",
+    "atlas_index": 69
+  },
+  "68": {
+    "name": "Machamp",
+    "atlas_index": 70
+  },
+  "69": {
+    "name": "Bellsprout",
+    "atlas_index": 71
+  },
+  "70": {
+    "name": "Weepinbell",
+    "atlas_index": 72
+  },
+  "71": {
+    "name": "Victreebel",
+    "atlas_index": 73
+  },
+  "72": {
+    "name": "Tentacool",
+    "atlas_index": 74
+  },
+  "73": {
+    "name": "Tentacruel",
+    "atlas_index": 75
+  },
+  "74": {
+    "name": "Geodude",
+    "atlas_index": 76
+  },
+  "75": {
+    "name": "Graveler",
+    "atlas_index": 77
+  },
+  "76": {
+    "name": "Golem",
+    "atlas_index": 78
+  },
+  "77": {
+    "name": "Ponyta",
+    "atlas_index": 79
+  },
+  "78": {
+    "name": "Rapidash",
+    "atlas_index": 80
+  },
+  "79": {
+    "name": "Slowpoke",
+    "atlas_index": 81
+  },
+  "80": {
+    "name": "Slowbro",
+    "atlas_index": 82
+  },
+  "81": {
+    "name": "Magnemite",
+    "atlas_index": 84
+  },
+  "82": {
+    "name": "Magneton",
+    "atlas_index": 85
+  },
+  "83": {
+    "name": "Farfetch\u2019d",
+    "crystal_index": 82
+  },
+  "84": {
+    "name": "Doduo",
+    "atlas_index": 407
+  },
+  "85": {
+    "name": "Dodrio",
+    "atlas_index": 406
+  },
+  "86": {
+    "name": "Seel",
+    "crystal_index": 85
+  },
+  "87": {
+    "name": "Dewgong",
+    "crystal_index": 86
+  },
+  "88": {
+    "name": "Grimer",
+    "atlas_index": 361
+  },
+  "89": {
+    "name": "Muk",
+    "atlas_index": 362
+  },
+  "90": {
+    "name": "Shellder",
+    "crystal_index": 89
+  },
+  "91": {
+    "name": "Cloyster",
+    "crystal_index": 90
+  },
+  "92": {
+    "name": "Gastly",
+    "atlas_index": 95
+  },
+  "93": {
+    "name": "Haunter",
+    "atlas_index": 96
+  },
+  "94": {
+    "name": "Gengar",
+    "atlas_index": 97
+  },
+  "95": {
+    "name": "Onix",
+    "atlas_index": 98
+  },
+  "96": {
+    "name": "Drowzee",
+    "atlas_index": 460
+  },
+  "97": {
+    "name": "Hypno",
+    "crystal_index": 96
+  },
+  "98": {
+    "name": "Krabby",
+    "crystal_index": 97
+  },
+  "99": {
+    "name": "Kingler",
+    "crystal_index": 98
+  },
+  "100": {
+    "name": "Voltorb",
+    "atlas_index": 367
+  },
+  "101": {
+    "name": "Electrode",
+    "crystal_index": 100
+  },
+  "102": {
+    "name": "Exeggcute",
+    "atlas_index": 107
+  },
+  "103": {
+    "name": "Exeggutor",
+    "atlas_index": 108
+  },
+  "104": {
+    "name": "Cubone",
+    "atlas_index": 487
+  },
+  "105": {
+    "name": "Marowak",
+    "atlas_index": 452
+  },
+  "106": {
+    "name": "Hitmonlee",
+    "atlas_index": 112
+  },
+  "107": {
+    "name": "Hitmonchan",
+    "atlas_index": 113
+  },
+  "108": {
+    "name": "Lickitung",
+    "crystal_index": 107
+  },
+  "109": {
+    "name": "Koffing",
+    "atlas_index": 115
+  },
+  "110": {
+    "name": "Weezing",
+    "atlas_index": 116
+  },
+  "111": {
+    "name": "Rhyhorn",
+    "atlas_index": 117
+  },
+  "112": {
+    "name": "Rhydon",
+    "atlas_index": 118
+  },
+  "113": {
+    "name": "Chansey",
+    "atlas_index": 120
+  },
+  "114": {
+    "name": "Tangela",
+    "atlas_index": 122
+  },
+  "115": {
+    "name": "Kangaskhan",
+    "atlas_index": 124
+  },
+  "116": {
+    "name": "Horsea",
+    "atlas_index": 374
+  },
+  "117": {
+    "name": "Seadra",
+    "atlas_index": 376
+  },
+  "118": {
+    "name": "Goldeen",
+    "atlas_index": 126
+  },
+  "119": {
+    "name": "Seaking",
+    "atlas_index": 127
+  },
+  "120": {
+    "name": "Staryu",
+    "atlas_index": 416
+  },
+  "121": {
+    "name": "Starmie",
+    "atlas_index": 412
+  },
+  "122": {
+    "name": "MrMime",
+    "atlas_index": 369
+  },
+  "123": {
+    "name": "Scyther",
+    "atlas_index": 131
+  },
+  "124": {
+    "name": "Jynx",
+    "atlas_index": 403
+  },
+  "125": {
+    "name": "Electabuzz",
+    "atlas_index": 135
+  },
+  "126": {
+    "name": "Magmar",
+    "atlas_index": 138
+  },
+  "127": {
+    "name": "Pinsir",
+    "atlas_index": 364
+  },
+  "128": {
+    "name": "Tauros",
+    "atlas_index": 471
+  },
+  "129": {
+    "name": "Magikarp",
+    "atlas_index": 140
+  },
+  "130": {
+    "name": "Gyarados",
+    "atlas_index": 141
+  },
+  "131": {
+    "name": "Lapras",
+    "atlas_index": 382
+  },
+  "132": {
+    "name": "Ditto",
+    "atlas_index": 143
+  },
+  "133": {
+    "name": "Eevee",
+    "atlas_index": 144
+  },
+  "134": {
+    "name": "Vaporeon",
+    "atlas_index": 145
+  },
+  "135": {
+    "name": "Jolteon",
+    "atlas_index": 146
+  },
+  "136": {
+    "name": "Flareon",
+    "atlas_index": 147
+  },
+  "137": {
+    "name": "Porygon",
+    "atlas_index": 153
+  },
+  "138": {
+    "name": "Omanyte",
+    "atlas_index": 308
+  },
+  "139": {
+    "name": "Omastar",
+    "atlas_index": 309
+  },
+  "140": {
+    "name": "Kabuto",
+    "atlas_index": 305
+  },
+  "141": {
+    "name": "Kabutops",
+    "crystal_index": 140
+  },
+  "142": {
+    "name": "Aerodactyl",
+    "atlas_index": 473
+  },
+  "143": {
+    "name": "Snorlax",
+    "atlas_index": 161
+  },
+  "144": {
+    "name": "Articuno",
+    "atlas_index": 162
+  },
+  "145": {
+    "name": "Zapdos",
+    "atlas_index": 163
+  },
+  "146": {
+    "name": "Moltres",
+    "atlas_index": 164
+  },
+  "147": {
+    "name": "Dratini",
+    "atlas_index": 385
+  },
+  "148": {
+    "name": "Dragonair",
+    "atlas_index": 384
+  },
+  "149": {
+    "name": "Dragonite",
+    "atlas_index": 383
+  },
+  "150": {
+    "name": "Mewtwo",
+    "atlas_index": 168
+  },
+  "151": {
+    "name": "Mew",
+    "atlas_index": 169
+  },
+  "169": {
+    "name": "Crobat",
+    "atlas_index": 44
+  },
+  "182": {
+    "name": "Bellossom",
+    "atlas_index": 459
+  },
+  "186": {
+    "name": "Politoed",
+    "atlas_index": 421
+  },
+  "208": {
+    "name": "Steelix",
+    "atlas_index": 99
+  },
+  "230": {
+    "name": "Kingdra",
+    "atlas_index": 377
+  },
+  "462": {
+    "name": "Magnezone",
+    "atlas_index": 86
+  }
+}

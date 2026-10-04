@@ -1,0 +1,21 @@
+name: GBA Core ARM Check
+on:
+  push:
+    branches: [ "prototype/seeded-wilderness", "feature/wilderness-playable" ]
+  workflow_dispatch:
+
+jobs:
+  arm-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi
+      - name: Compile PokéWilds core for ARM7TDMI
+        run: |
+          mkdir -p build/arm
+          arm-none-eabi-gcc -std=gnu17 -Os -Wall -Wextra -Werror -mcpu=arm7tdmi -mthumb -ffreestanding -Iinclude -c src/pokewilds/world.c -o build/arm/world.o
+          arm-none-eabi-gcc -std=gnu17 -Os -Wall -Wextra -Werror -mcpu=arm7tdmi -mthumb -ffreestanding -Iinclude -c src/pokewilds/game.c -o build/arm/game.o
+          arm-none-eabi-size build/arm/world.o build/arm/game.o

@@ -1,0 +1,12 @@
+/build/
+/validation/
+/validation03/
+/engine/
+/dist/
+__pycache__/
+*.pyc
+*.gba
+*.elf
+*.sav
+*.map
+*.log
