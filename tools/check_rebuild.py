@@ -1,9 +1,9 @@
-"""0.3 ROM acceptance playthrough. Controls only; memory is observed, never patched."""
+"""ROM acceptance playthrough. Controls only; memory is observed, never patched."""
 from emulator import Emulator
 from pathlib import Path
 from collections import deque
 import ctypes, json, subprocess
-OUT=Path('validation03');OUT.mkdir(exist_ok=True)
+OUT=Path('validation04');OUT.mkdir(exist_ok=True)
 subprocess.run(['cc','-shared','-fPIC','-O2','-Iinclude','src/pokewilds/world.c','-o',str(OUT/'world.so')],check=True)
 world=ctypes.CDLL(str(OUT.resolve()/'world.so'));world.PwWorld_BaseTile.restype=ctypes.c_ubyte
 save=OUT/'acceptance.sav';save.unlink(missing_ok=True)
@@ -34,6 +34,11 @@ def edits():
 def tile(x,y):return edits().get((x,y),world.PwWorld_BaseTile(x,y))
 def occupied():
  out={(a['x'],a['y']) for a in actors()}
+ for i in range(5):
+  a=e.symbols['sWild']+20*i
+  if e.read(a+7,1) and e.read(a+16,1):
+   dx=p16(a+12);dy=p16(a+14)
+   out.add((p16(a)+(dx>0)-(dx<0),p16(a+2)+(dy>0)-(dy<0)))
  for i in range(6):
   a=e.symbols['gSaveblock3']+1332+i*8
   if e.read(a+6,1):out.add((p16(a),p16(a+2)))
@@ -75,6 +80,8 @@ def walk(goal,run=False):
     if n in seen or n in obstacles or abs(n[0]-start[0])>65 or abs(n[1]-start[1])>65:continue
     if cells.get(n,world.PwWorld_BaseTile(*n)) not in passable:continue
     seen.add(n);q.append((n,path+[k]))
+  if route is None and goal in occupied():
+   e.run(90);continue  # A wandering creature may temporarily occupy the goal.
   assert route,('no route',start,goal)
   step(route[0],run)
  raise AssertionError('navigation timed out')
@@ -107,7 +114,7 @@ def drop(index,target):
  setup_facing(target,'DOWN');menu(0)
  for _ in range(index):e.tap('DOWN')
  before=e.read('gPartiesCount',1);identity=e.read(e.symbols['gParties']+100*index)
- e.tap('START',30)
+ e.tap('START',30);assert ui()==16;e.tap('A')
  check('place habitat Pokemon at '+str(target),ui()==2 and e.read('gPartiesCount',1)==before-1 and target in occupied())
  return identity
 
@@ -135,7 +142,7 @@ setup_facing((1,-2),'UP');before=sv(1326);e.tap('A')
 check('harvest yields berries and seeds',sv(1326)==before+3 and sv(1324)==4 and tile(1,-2)==15)
 for target,offset in [((-1,1),1328),((1,1),1330)]:
  setup_facing(target,'DOWN');e.tap('A');assert ui()==14;e.tap('A')
- check('happy habitat produces material '+str(offset),sv(offset)==2);snap('08-habitat-'+str(offset));e.tap('B')
+ check('happy habitat produces material '+str(offset),sv(offset)==2);snap('08-habitat-'+str(offset));back_world()
 setup_facing((-1,-2),'UP');e.tap('R')
 # Previous roof index 7 -> bed index 4.
 for _ in range(3):e.tap('L')

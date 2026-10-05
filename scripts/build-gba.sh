@@ -15,5 +15,5 @@ make -C "$ROOT" test
 bash "$ROOT/scripts/overlay-engine.sh" "$ENGINE"
 make -C "$ENGINE" modern TOOLCHAIN="${TOOLCHAIN:-/usr}" TITLE=POKEWILDSGBA GAME_CODE=PWGE -j"${JOBS:-2}"
 mkdir -p "$ROOT/build"
-cp "$ENGINE/pokeemerald.gba" "$ROOT/build/Pokewilds-GBA-0.3.gba"
-sha256sum "$ROOT/build/Pokewilds-GBA-0.3.gba"
+cp "$ENGINE/pokeemerald.gba" "$ROOT/build/Pokewilds-GBA-0.3.1.gba"
+sha256sum "$ROOT/build/Pokewilds-GBA-0.3.1.gba"

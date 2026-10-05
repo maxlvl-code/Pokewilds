@@ -23,6 +23,7 @@ jobs:
         run: |
           mkdir -p validation
           cc -shared -fPIC tools/emulator_bridge.c -o validation/libemulator.so -lmgba
+          python3 tools/check_controls.py
           python3 tools/check_rebuild.py
           python3 tools/check_combat.py
           python3 tools/check_session.py
@@ -30,7 +31,8 @@ jobs:
         with:
           name: Pokewilds-GBA-validation
           path: |
+            pokewilds/build/*.gba
             pokewilds/README.md
             pokewilds/docs/VALIDATION.md
-            pokewilds/validation03/*.json
-            pokewilds/validation03/*.png
+            pokewilds/validation04/*.json
+            pokewilds/validation04/*.png

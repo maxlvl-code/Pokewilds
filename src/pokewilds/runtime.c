@@ -95,7 +95,7 @@ enum {
     UI_BAG,
     UI_OPTIONS,
     UI_STORAGE,
-    UI_SAVE, UI_WILD, UI_RESIDENT, UI_FIELD
+    UI_SAVE, UI_WILD, UI_RESIDENT, UI_FIELD, UI_PLACE
 };
 struct WildActor {
     s16 x, y;
@@ -113,13 +113,19 @@ EWRAM_DATA static s16 sFollowX = 0, sFollowY = 0, sFollowOffsetX = 0, sFollowOff
 EWRAM_DATA static u8 sFollowDir = 0;
 static int FindWorker(int skill);
 static int ResidentAt(int x, int y);
-static void ReloadActorGfx(void);
 static void ReloadPartner(void);
 static void SetUi(u8 ui);
+static void OpenUi(u8 ui);
+static void BackUi(void);
+static void BeginPlacement(void);
+static const char *BuildProblem(int x, int y);
+static const char *HabitatProblem(int x, int y);
+static void CB2_PwSummaryReturn(void);
 static void DropPartner(void);
 static void ResidentAction(void);
 static void WildAction(void);
 static void Wander(void);
+static void RefreshWildPopulation(void);
 static void TickWorld(void);
 static void ApplyLighting(void);
 static bool8 CanUse(u16 species, int skill);
@@ -142,6 +148,12 @@ EWRAM_DATA static bool8 sRenderValid = FALSE;
 EWRAM_DATA static volatile u16 sPressed = 0, sRepeated = 0, sHeld = 0;
 EWRAM_DATA static u16 sLastHeld = 0, sPendingKeys = 0;
 EWRAM_DATA static u8 sKeyDelay = 0, sSecondFrames = 0;
+struct UiHistory { u8 screen, selection; };
+EWRAM_DATA static struct UiHistory sUiHistory[4] = {0};
+EWRAM_DATA static u8 sUiDepth = 0, sPlaceParty = 0, sTurnFrames = 0, sLastUiDrawn = 0;
+EWRAM_DATA static s8 sPendingFacing = 0;
+EWRAM_DATA static bool8 sNoticeModal = FALSE, sWalking = FALSE;
+EWRAM_DATA static bool8 sUiDirectionGate = FALSE;
 static void ApplyCamera(void);
 static void DrawCell(int x, int y);
 static void MainLoop(void);
@@ -266,7 +278,8 @@ static void EncodedText(int x, int y, const u8 *str) {
 }
 static void Notice(const char *str) {
     PwFormat(sNotice, sizeof(sNotice), "%s", str);
-    sNoticeFrames = 150;
+    sNoticeFrames = 180;
+    sNoticeModal = sUi != UI_WORLD && sUi != UI_BUILD && sUi != UI_PLACE;
     sUiDirty = TRUE;
 }
 static void VBlank(void) {
@@ -370,8 +383,10 @@ static void InitScreen(void) {
     sCursorSprite = CreateSprite(&t, 120, 96, 0);
     gSprites[sCursorSprite].oam.priority = 0;
     sPressed = sRepeated = sPendingKeys = 0;
+    sPendingFacing = -1;
     sHeld = sLastHeld = REG_KEYINPUT ^ KEYS_MASK;
     sRenderValid = FALSE;
+    sLastUiDrawn = 255;
     ApplyCamera();
     SetGpuReg(REG_OFFSET_BLDCNT, 0);
     SetGpuReg(REG_OFFSET_BLDALPHA, 0);
@@ -475,26 +490,38 @@ static void Panel(const char *title) {
     FillWindowPixelBuffer(0, PIXEL_FILL(1));
     FillWindowPixelRect(0, 5, 0, 0, 240, 19);
     FillWindowPixelRect(0, 6, 0, 141, 240, 19);
+    FillWindowPixelRect(0, 2, 0, 19, 240, 1);
+    FillWindowPixelRect(0, 3, 0, 140, 240, 1);
     Text(8, 2, title);
 }
 static void Row(int n, int y, const char *str) {
-    if (sSelection == n)
+    if (sSelection == n) {
         FillWindowPixelRect(0, 5, 5, y, 230, 16);
-    Text(10, y, str);
+        Text(7, y, ">");
+    }
+    Text(18, y, str);
 }
 static void SpeciesName(int x, int y, u16 species) { EncodedText(x, y, GetSpeciesName(species)); }
 static void DrawUI(void) {
     char b[120];
     int i;
     FillWindowPixelBuffer(0, 0);
-    if (sUi == UI_WORLD || sUi == UI_BUILD) {
+    if (sUi == UI_WORLD || sUi == UI_BUILD || sUi == UI_PLACE) {
         FillWindowPixelRect(0, 1, 0, 0, 240, 16);
         FillWindowPixelRect(0, 1, 0, 145, 240, 15);
-        if (sUi == UI_BUILD) {
+        if (sUi == UI_PLACE) {
+            Text(4, 1, "PLACE");
+            SpeciesName(42, 1, GetMonData(&PARTY[sPlaceParty], MON_DATA_SPECIES));
+            Text(4, 145, "D-pad Choose tile   A Place   B Cancel");
+        } else if (sUi == UI_BUILD) {
             PwFormat(b, sizeof(b), "BUILD %s  W%u S%u F%u", sBuildNames[sBuild], sCosts[sBuild][0],
                      sCosts[sBuild][1], sCosts[sBuild][2]);
             if (sBuildTiles[sBuild]==PW_TILE_BED) PwFormat(b,sizeof(b),"BED W6 THREAD2 FEATHERS2");
             Text(4, 1, b);
+            FillWindowPixelRect(0, 1, 0, 16, 240, 16);
+            PwFormat(b,sizeof(b),"Have: %u wood / %u stone / %u fiber",WORLD.wood,WORLD.stone,WORLD.fiber);
+            if (sBuildTiles[sBuild]==PW_TILE_BED) PwFormat(b,sizeof(b),"Have: %u wood / %u thread / %u feathers",WORLD.wood,WORLD.thread,WORLD.feathers);
+            Text(4,17,b);
             Text(4, 145, "A Place L/R Piece SELECT Cut B Exit");
         } else {
             PwFormat(b,sizeof(b),"%s%u %s W%u S%u",WORLD.seconds%720>=540?"NIGHT":"DAY",
@@ -506,7 +533,7 @@ static void DrawUI(void) {
         FillWindowPixelRect(0, 1, 15, 24, 210, 108);
         FillWindowPixelRect(0, 5, 15, 24, 210, 25);
         Text(64, 30, "POKEWILDS GBA");
-        Text(50, 55, "WILDERNESS REBUILD 0.3");
+        Text(50, 55, "WILDERNESS 0.3.1");
         Text(35, 79, sHasSave ? (sSelection == 0 ? "> Continue" : "  Continue") : "  No saved world");
         Text(35, 97, sSelection == 1 ? "> New world" : "  New world");
         Text(35, 115, "A Select");
@@ -514,8 +541,11 @@ static void DrawUI(void) {
         Panel("NEW WORLD");
         Text(10, 26, "World seed");
         PwFormat(b, sizeof(b), "%08X", (unsigned)sSeed);
-        Text(27, 49, b);
-        Text(27 + sDigit * 6, 60, "-");
+        for (i=0;i<8;i++) {
+            char digit[2] = {b[i],0};
+            FillWindowPixelRect(0,i==sDigit?5:6,36+i*20,44,18,26);
+            Text(42+i*20,50,digit);
+        }
         Text(10, 82, "Partner: MACHOP / Level 7");
         Text(10, 101, "Left/Right: digit    Up/Down: value");
         Text(10, 117, "R: random seed");
@@ -524,8 +554,11 @@ static void DrawUI(void) {
         static const char *items[] = {"POKEMON", "BAG / SUPPLIES", "CRAFT",   "BUILD", "WORLD MAP",
                                       "STORAGE", "SAVE WORLD",     "OPTIONS", "HELP"};
         Panel("CAMP MENU");
-        for (i = 0; i < 9; i++)
-            Row(i, 21 + i * 13, items[i]);
+        PwFormat(b,sizeof(b),"%u / 9",sSelection+1);Text(194,2,b);
+        { int first = sSelection < 6 ? 0 : sSelection - 5;
+          for (i = first; i < first + 6 && i < 9; i++)
+              Row(i, 24 + (i-first) * 18, items[i]);
+        }
         Text(6, 145, "A Open   B Resume");
     } else if (sUi == UI_CRAFT) {
         Panel("CRAFT");
@@ -548,7 +581,7 @@ static void DrawUI(void) {
         Text(8,125,CanUse(selected,FIELD_CUT)?"Field: CUT trees and plants":
             CanUse(selected,FIELD_BUILD)?"Field: BUILD your home":CanUse(selected,FIELD_SMASH)?"Field: SMASH rocks / DIG soil":
             HasType(selected,TYPE_BUG)?"Happy habitat: makes SILKY THREAD":HasType(selected,TYPE_FLYING)?"Happy habitat: makes SOFT FEATHERS":"Place in a habitat to collect materials");
-        Text(4,145,"A Info SELECT Lead START Place B Back");
+        Text(4,145,"A Summary SELECT Lead START Place B Back");
     } else if (sUi == UI_MAP) {
         Panel("WORLD MAP / EXPLORED CHUNKS");
         for (i = 0; i < 32 * 32; i++) {
@@ -564,14 +597,15 @@ static void DrawUI(void) {
             if (x >= 0 && x < 32 && y >= 0 && y < 32)
                 FillWindowPixelRect(0, 12, 8 + x * 3, 29 + y * 3, 3, 3);
         }
-        PwFormat(b, sizeof(b), "X %d / Y %d", WORLD.playerX, WORLD.playerY);
+        PwFormat(b, sizeof(b), "X %d", WORLD.playerX);
         Text(115, 33, b);
+        PwFormat(b, sizeof(b), "Y %d", WORLD.playerY);Text(115,49,b);
         PwFormat(b, sizeof(b), "Seed %08X", (unsigned)WORLD.seed);
-        Text(115, 54, b);
-        Text(115, 75, sBiomes[PwWorld_BiomeAtTile(WORLD.playerX, WORLD.playerY)]);
+        Text(115, 70, b);
+        Text(115, 89, sBiomes[PwWorld_BiomeAtTile(WORLD.playerX, WORLD.playerY)]);
         PwFormat(b, sizeof(b), "Edits %u/%u", WORLD.editCount, PW_MAX_WORLD_EDITS);
-        Text(115, 96, b);
-        Text(5, 145, "Yellow: you   Each cell: 16 tiles   B Back");
+        Text(115, 110, b);
+        Text(5, 145, "Yellow: you   1 cell: 16 tiles   B Back");
     } else if (sUi == UI_BAG) {
         Panel("BAG / SUPPLIES");
         PwFormat(b, sizeof(b), "POKE BALLS  %u", CountTotalItemQuantityInBag(ITEM_POKE_BALL));
@@ -589,7 +623,7 @@ static void DrawUI(void) {
         Text(8,39,"Grass: CUT. Rock: SMASH. Ground: DIG.");
         Text(8,55,"Machop BUILDs with R. L shows skills.");
         Text(8,71,"A on prepared soil plants a seed.");
-        Text(8,87,"Party > START places a habitat Pokemon.");
+        Text(8,87,"Party START: aim, then A to place.");
         Text(8,103,"Bug/flying residents give bed materials.");
         Text(8,119,"Beds and campfires heal. Save often.");
         Text(6,145,"D-pad move   B Run / Back");
@@ -658,12 +692,20 @@ static void DrawUI(void) {
         if(!sNotice[n])split=n;
         else if(!split)split=n;
         memcpy(line,sNotice,split);line[split]=0;
-        FillWindowPixelRect(0,1,2,110,236,33);
+        FillWindowPixelRect(0,2,1,108,238,36);
+        FillWindowPixelRect(0,1,3,110,234,32);
         Text(6,111,line);
         if(sNotice[split])Text(6,126,sNotice+split+(sNotice[split]==' '));
+        if (sNoticeModal) {
+            FillWindowPixelRect(0,6,0,144,240,16);
+            Text(6,145,"A / B  Close message");
+        }
     }
-    CopyWindowToVram(0, COPYWIN_FULL);
-    CopyBgTilemapBufferToVram(0);
+    if (sLastUiDrawn == sUi && (sUi == UI_WORLD || sUi == UI_BUILD || sUi == UI_PLACE)) {
+        CopyWindowRectToVram(0,COPYWIN_GFX,0,0,30,4);
+        CopyWindowRectToVram(0,COPYWIN_GFX,0,13,30,7);
+    } else CopyWindowToVram(0, COPYWIN_FULL);
+    sLastUiDrawn = sUi;
     sUiDirty = FALSE;
 }
 static void SetWorldSprite(u8 id, int x, int y, u16 tag, u8 direction, u8 walking, bool8 visible) {
@@ -678,7 +720,7 @@ static void SetWorldSprite(u8 id, int x, int y, u16 tag, u8 direction, u8 walkin
 }
 static void UpdateSprites(void) {
     int i;
-    bool8 visible = sUi == UI_WORLD || sUi == UI_BUILD || sUi == UI_TITLE;
+    bool8 visible = sUi == UI_WORLD || sUi == UI_BUILD || sUi == UI_PLACE || sUi == UI_TITLE;
     struct Sprite *p = &gSprites[sPlayerSprite];
     u8 dir = WORLD.facing;
     u8 frame = (dir == 1 ? 0 : dir == 0 ? 2 : dir == 2 ? 4 : 6) +
@@ -698,7 +740,13 @@ static void UpdateSprites(void) {
         sFollowOffsetX||sFollowOffsetY,visible&&sUi!=UI_TITLE&&PARTY_COUNT>0);
     gSprites[sCursorSprite].x = 120 + sCursorX * 16;
     gSprites[sCursorSprite].y = 80 + sCursorY * 16;
-    gSprites[sCursorSprite].invisible = sUi != UI_BUILD;
+    gSprites[sCursorSprite].invisible = sUi != UI_BUILD && sUi != UI_PLACE;
+    if (sUi == UI_BUILD || sUi == UI_PLACE) {
+        int x=WORLD.playerX+sCursorX,y=WORLD.playerY+sCursorY;
+        bool8 blocked = sUi==UI_BUILD ? BuildProblem(x,y)!=NULL : HabitatProblem(x,y)!=NULL;
+        u16 color = blocked ? RGB(31,7,5) : RGB(7,29,12);
+        LoadPalette(&color,256+16*IndexOfSpritePaletteTag(CURSOR_TAG)+1,2);
+    }
 }
 static u16 SpeciesForBiome(u8 biome, u32 r) {
     static const u16 pool[5][6] = {{16, 19, 21, 25, 29, 32},
@@ -738,7 +786,9 @@ static void SpawnActors(void) {
             break;
         }
     }
-    if (Abs(WORLD.playerX) < 10 && Abs(WORLD.playerY) < 8) {
+    /* Unrecruited camp helpers keep their slots even when camp is off-screen.
+     * They must still be there after exploring or loading a distant save. */
+    {
         static const s8 x[4] = {-3,4,3,-4}, y[4] = {2,3,-3,-3};
         static const u16 species[4] = {SPECIES_ODDISH,SPECIES_GEODUDE,SPECIES_CATERPIE,SPECIES_PIDGEY};
         for (i = 0; i < 4; i++) {
@@ -751,30 +801,75 @@ static void SpawnActors(void) {
     }
 
 }
-static void ReloadActorGfx(void) {
-    int i;
-    for (i = 0; i < ACTORS; i++) {
-        if (sWild[i].sprite < MAX_SPRITES)
-            DestroySprite(&gSprites[sWild[i].sprite]);
-        FreeSpriteTilesByTag(PLAYER_TAG + i + 1);
-        FreeSpritePaletteByTag(PLAYER_TAG + i + 1);
-        MakeActorSprite(i + 1, sWild[i].asset ? sWild[i].asset : 1);
-    }
-    ApplyLighting();
-}
 static int ActorAt(int x, int y) {
     int i;
-    for (i = 0; i < ACTORS; i++)
-        if (sWild[i].active && sWild[i].x == x && sWild[i].y == y)
-            return i;
+    for (i = 0; i < ACTORS; i++) {
+        struct WildActor *a=&sWild[i];
+        if (!a->active) continue;
+        if (a->x==x && a->y==y) return i;
+        if (a->moving && a->x+(a->offsetX>0)-(a->offsetX<0)==x &&
+            a->y+(a->offsetY>0)-(a->offsetY<0)==y) return i;
+    }
     return -1;
+}
+/* Keep visible creatures in place. Replace one off-screen actor at a time,
+ * rather than teleporting every creature each time the player takes 48 steps. */
+static void RefreshWildPopulation(void) {
+    int i,t;
+    for (i=0;i<ACTORS;i++) {
+        struct WildActor *a=&sWild[i];
+        if (a->active && a->friendId<4) continue;
+        if (a->active && Abs(a->x-WORLD.playerX)<=12 && Abs(a->y-WORLD.playerY)<=8) continue;
+        if (!a->active && Abs(a->x-WORLD.playerX)<=8 && Abs(a->y-WORLD.playerY)<=5) continue;
+        a->active=0;
+        for (t=0;t<24;t++) {
+            u32 r=PwWorld_Hash(WORLD.seed,WORLD.playerX+i,WORLD.playerY+t,sFrames+0x719);
+            int x=WORLD.playerX+(int)(r%23)-11,y=WORLD.playerY+(int)((r>>9)%17)-8;
+            u8 tile=PwGame_TileAt(&sGame,x,y);
+            if ((Abs(x-WORLD.playerX)<=8 && Abs(y-WORLD.playerY)<=5) ||
+                x<=-PW_WORLD_LIMIT || x>=PW_WORLD_LIMIT-1 || y<=-PW_WORLD_LIMIT || y>=PW_WORLD_LIMIT-1 ||
+                !PwGame_Passable(tile) || tile>=PW_TILE_FLOOR || ActorAt(x,y)>=0 || ResidentAt(x,y)>=0) continue;
+            a->x=x;a->y=y;a->species=SpeciesForBiome(PwWorld_BiomeAtTile(x,y),r>>16);
+            a->level=2+(r>>22)%4;a->asset=AssetId(a->species);a->active=1;
+            a->friendly=(r&3)==0;a->friendId=255;a->direction=r%4;
+            a->moving=0;a->offsetX=a->offsetY=0;a->delay=35+(r>>4)%80;
+            DestroySprite(&gSprites[a->sprite]);
+            FreeSpriteTilesByTag(PLAYER_TAG+i+1);FreeSpritePaletteByTag(PLAYER_TAG+i+1);
+            MakeActorSprite(i+1,a->asset);ApplyLighting();
+            return;
+        }
+    }
 }
 static void SetUi(u8 ui) {
     sNoticeFrames = 0;
+    sNoticeModal = FALSE;
+    sWalking = FALSE;
+    sTurnFrames = 0;
+    sUiDirectionGate = (sHeld & (DPAD_UP|DPAD_DOWN|DPAD_LEFT|DPAD_RIGHT)) != 0;
+    if (ui == UI_WORLD) sUiDepth = 0;
+    if (sUi == UI_BUILD || ui == UI_BUILD) sWorldDirty = TRUE;
     sUi = ui;
     sSelection = 0;
     sUiDirty = TRUE;
     PlaySE(SE_SELECT);
+}
+static void OpenUi(u8 ui) {
+    if (sUiDepth < ARRAY_COUNT(sUiHistory))
+        sUiHistory[sUiDepth++] = (struct UiHistory){sUi,sSelection};
+    SetUi(ui);
+}
+static void BackUi(void) {
+    if (sUiDepth) {
+        struct UiHistory previous = sUiHistory[--sUiDepth];
+        SetUi(previous.screen);
+        sSelection = previous.selection;
+    } else SetUi(UI_WORLD);
+}
+static void CB2_PwSummaryReturn(void) {
+    sUi = UI_PARTY;
+    sSelection = gLastViewedMonIndex < PARTY_COUNT ? gLastViewedMonIndex : 0;
+    sNoticeFrames = 0;
+    InitScreen();
 }
 static void StartNew(void) {
     u32 seed = sSeed;
@@ -812,11 +907,18 @@ static void StartNew(void) {
     sScrollX = sScrollY = sMoveFrames = 0;
     SpawnActors();
     sUi = UI_WORLD;
+    sUiDepth = 0;
+    sTurnFrames = sSecondFrames = 0;
+    sWalking = FALSE;
     Notice("Meet friendly Oddish west of camp. Grass Pokemon use CUT.");
     InitScreen();
     PlayBGM(MUS_RG_VIRIDIAN_FOREST);
 }
 void CB2_PwBoot(void) {
+    /* A return from Save and Quit still owns the wilderness window buffers.
+     * Release them before resetting their allocator, not inside InitScreen. */
+    SetVBlankCallback(NULL);
+    FreeAllWindowBuffers();
     sSeed = 0x00483729;
     sMoveSpeed = 2;
     sCursorY = 1;
@@ -835,6 +937,8 @@ void CB2_PwBoot(void) {
     PwGame_Restore(&sGame);
     SpawnActors();
     sUi = UI_TITLE;
+    sUiDepth = 0;
+    sWalking = FALSE;
     sSelection = sHasSave ? 0 : 1;
     sNoticeFrames = 0;
     sScrollX = sScrollY = 0;
@@ -848,6 +952,8 @@ static void ResumeMusic(void) {
 }
 void CB2_PwResume(void) {
     sUi = UI_WORLD;
+    sUiDepth = 0;
+    sWalking = FALSE;
     sScrollX = sScrollY = sMoveFrames = 0;
     sFollowX=WORLD.playerX; sFollowY=WORLD.playerY+1;
     sFollowOffsetX=sFollowOffsetY=0;
@@ -899,34 +1005,47 @@ static void BeginBuild(void) {
     if (FindWorker(FIELD_BUILD) < 0) {Notice("A healthy Fighting Pokemon must help you BUILD."); return;}
     sCursorX = sDx[WORLD.facing];
     sCursorY = sDy[WORLD.facing];
-    SetUi(UI_BUILD);
+    OpenUi(UI_BUILD);
+}
+static void BeginPlacement(void) {
+    if (PARTY_COUNT <= 1) {Notice("Keep at least one Pokemon with you.");return;}
+    sPlaceParty = sSelection;
+    sCursorX = sDx[WORLD.facing]; sCursorY = sDy[WORLD.facing];
+    OpenUi(UI_PLACE);
 }
 static u16 AddMaterial(u16 value, u16 amount) {
     u32 total = (u32)value + amount;
     return total > 65535 ? 65535 : total;
 }
-static void Place(void) {
-    int x = WORLD.playerX + sCursorX, y = WORLD.playerY + sCursorY;
+static const char *BuildProblem(int x, int y) {
     u8 old = PwGame_TileAt(&sGame, x, y), t = sBuildTiles[sBuild];
-    if ((!sCursorX && !sCursorY) || ActorAt(x, y) >= 0 || ResidentAt(x,y) >= 0) {
-        Notice("Choose a free tile.");
-        return;
-    }
+    if ((x==WORLD.playerX && y==WORLD.playerY) || ActorAt(x,y)>=0 || ResidentAt(x,y)>=0)
+        return "Choose a free tile.";
     if ((t == PW_TILE_BRIDGE && old != PW_TILE_WATER) ||
         (t == PW_TILE_ROOF && old != PW_TILE_FLOOR) ||
         (t != PW_TILE_BRIDGE && t != PW_TILE_ROOF && (!PwGame_Passable(old) ||
             (old >= PW_TILE_FLOOR && !(old == PW_TILE_FLOOR && (t == PW_TILE_WALL || t == PW_TILE_DOOR || t == PW_TILE_BED)))))) {
-        Notice(t == PW_TILE_BRIDGE ? "Bridges go on water." : "Clear this tile first.");
-        return;
+        return t == PW_TILE_BRIDGE ? "Bridges go on water." : t == PW_TILE_ROOF ? "Place a floor before adding a roof." : "Clear this tile first.";
     }
     if (t == PW_TILE_BED && (WORLD.thread < 2 || WORLD.feathers < 2)) {
-        Notice("Bed: 6 wood, 2 thread, 2 feathers from camp Pokemon."); return;
+        return "Bed: 6 wood, 2 thread, 2 feathers from camp Pokemon.";
     }
     if (WORLD.wood < sCosts[sBuild][0] || WORLD.stone < sCosts[sBuild][1] ||
         WORLD.fiber < sCosts[sBuild][2]) {
-        Notice("Not enough materials. Gather more nearby.");
-        return;
+        return "Not enough materials. Gather more nearby.";
     }
+    if (WORLD.editCount >= PW_MAX_WORLD_EDITS && t != PwWorld_BaseTile(x,y)) {
+        int i;
+        for(i=0;i<WORLD.editCount;i++) if(WORLD.edits[i].x==x && WORLD.edits[i].y==y) break;
+        if(i==WORLD.editCount) return "World edit limit reached: 192 tiles.";
+    }
+    return NULL;
+}
+static void Place(void) {
+    int x = WORLD.playerX + sCursorX, y = WORLD.playerY + sCursorY;
+    u8 t=sBuildTiles[sBuild];
+    const char *problem=BuildProblem(x,y);
+    if (problem) {Notice(problem);return;}
     if (!PwGame_Edit(&sGame, x, y, t)) {
         Notice("World edit limit reached: 192 tiles.");
         return;
@@ -975,8 +1094,8 @@ static void Interact(void) {
     int a=ActorAt(x,y), r=ResidentAt(x,y), worker=-1, result;
     u8 tile=PwGame_TileAt(&sGame,x,y);
     char message[72];
-    if (a>=0) {sTalkActor=a; SetUi(UI_WILD); return;}
-    if (r>=0) {sTalkResident=r; SetUi(UI_RESIDENT); return;}
+    if (a>=0) {sTalkActor=a; OpenUi(UI_WILD); return;}
+    if (r>=0) {sTalkResident=r; OpenUi(UI_RESIDENT); return;}
     if (tile==PW_TILE_FIRE || tile==PW_TILE_BED) {
         HealPlayerParty(); WORLD.campX=x; WORLD.campY=y;
         Notice("Your team rested. HP, PP and status restored."); PlaySE(SE_SELECT); return;
@@ -1043,20 +1162,28 @@ static void ReloadPartner(void) {
     MakeActorSprite(PARTNER_SLOT,AssetId(GetMonData(&PARTY[WORLD.follower],MON_DATA_SPECIES)));
     ApplyLighting();
 }
-static void DropPartner(void) {
-    int i,j,x=WORLD.playerX+sDx[WORLD.facing],y=WORLD.playerY+sDy[WORLD.facing];
+static const char *HabitatProblem(int x,int y) {
+    int i;
     u8 tile=PwGame_TileAt(&sGame,x,y);
-    if (PARTY_COUNT<=1) {Notice("Keep at least one Pokemon with you."); return;}
-    if (!PwGame_Passable(tile) || tile==PW_TILE_SPROUT || ActorAt(x,y)>=0 || ResidentAt(x,y)>=0) {
-        Notice("Face a clear patch of ground before placing a Pokemon."); return;
-    }
+    if (PARTY_COUNT<=1) return "Keep at least one Pokemon with you.";
+    if ((x==WORLD.playerX && y==WORLD.playerY) || !PwGame_Passable(tile) || tile==PW_TILE_SPROUT || ActorAt(x,y)>=0 || ResidentAt(x,y)>=0)
+        return "Choose an empty patch of ground with the cursor.";
+    for(i=0;i<PW_RESIDENTS;i++)
+        if(!WORLD.residents[i].active && !GetBoxMonData(GetBoxedMonPtr(RESIDENT_BOX,RESIDENT_SLOT+i),MON_DATA_SPECIES)) break;
+    if(i==PW_RESIDENTS) return "All six habitat slots are occupied.";
+    return NULL;
+}
+static void DropPartner(void) {
+    int i,j,x=WORLD.playerX+sCursorX,y=WORLD.playerY+sCursorY;
+    const char *problem=HabitatProblem(x,y);
+    if (problem) {Notice(problem);return;}
     for (i=0;i<PW_RESIDENTS;i++)
         if (!WORLD.residents[i].active && !GetBoxMonData(GetBoxedMonPtr(RESIDENT_BOX,RESIDENT_SLOT+i),MON_DATA_SPECIES)) break;
     if (i==PW_RESIDENTS) {Notice("All six habitat slots are occupied."); return;}
-    *GetBoxedMonPtr(RESIDENT_BOX,RESIDENT_SLOT+i)=PARTY[sSelection].box;
-    sResidentSpecies[i]=GetMonData(&PARTY[sSelection],MON_DATA_SPECIES);
+    *GetBoxedMonPtr(RESIDENT_BOX,RESIDENT_SLOT+i)=PARTY[sPlaceParty].box;
+    sResidentSpecies[i]=GetMonData(&PARTY[sPlaceParty],MON_DATA_SPECIES);
     WORLD.residents[i]=(struct PwResident){x,y,90,1,0};
-    for (j=sSelection;j<PARTY_COUNT-1;j++) PARTY[j]=PARTY[j+1];
+    for (j=sPlaceParty;j<PARTY_COUNT-1;j++) PARTY[j]=PARTY[j+1];
     ZeroMonData(&PARTY[PARTY_COUNT-1]); CalculatePlayerPartyCount();
     WORLD.follower=0;
     DestroySprite(&gSprites[sResidentSprites[i]]);
@@ -1206,7 +1333,7 @@ static void UsePotion(void) {
         return;
     }
     if (!CheckBagHasItem(ITEM_POTION, 1)) {
-        Notice("No Potions. Craft one with 3 fiber.");
+        Notice("No Potions. Craft one with 3 fiber and 1 berry.");
         return;
     }
     hp += 20;
@@ -1217,10 +1344,11 @@ static void UsePotion(void) {
     Notice("Potion restored your lead Pokemon's HP.");
 }
 static void StorageInput(u16 keys) {
-    struct BoxPokemon *box = GetBoxedMonPtr(sBox, sBoxSlot);
-    u16 species = GetBoxMonData(box, MON_DATA_SPECIES);
+    struct BoxPokemon *box;
+    u16 species;
     if (!keys)
         return;
+    if (keys & B_BUTTON) {BackUi();return;}
     if (keys & DPAD_LEFT)
         sBoxSlot = (sBoxSlot + 29) % 30;
     if (keys & DPAD_RIGHT)
@@ -1235,6 +1363,8 @@ static void StorageInput(u16 keys) {
         sBox = (sBox + 1) % TOTAL_BOXES_COUNT;
     if (keys & START_BUTTON)
         sPartySlot = (sPartySlot + 1) % PARTY_COUNT;
+    box = GetBoxedMonPtr(sBox, sBoxSlot);
+    species = GetBoxMonData(box, MON_DATA_SPECIES);
     if ((keys & (A_BUTTON | SELECT_BUTTON)) && sBox==RESIDENT_BOX && sBoxSlot>=RESIDENT_SLOT && WORLD.residents[sBoxSlot-RESIDENT_SLOT].active) {
         Notice("This Pokemon lives at your camp. Visit it to pick it up."); sUiDirty=TRUE; return;
     }
@@ -1247,10 +1377,11 @@ static void StorageInput(u16 keys) {
             BoxMonToMon(box, &PARTY[PARTY_COUNT]);
             memset(box, 0, sizeof(*box));
             CalculatePlayerPartyCount();
+            ReloadPartner();
             Notice("Pokemon joined your party.");
         }
     }
-    if (keys & SELECT_BUTTON) {
+    else if (keys & SELECT_BUTTON) {
         if (species)
             Notice("Select an empty box slot.");
         else if (PARTY_COUNT <= 1)
@@ -1263,12 +1394,19 @@ static void StorageInput(u16 keys) {
             ZeroMonData(&PARTY[PARTY_COUNT - 1]);
             CalculatePlayerPartyCount();
             sPartySlot = 0;
+            WORLD.follower = 0;
+            ReloadPartner();
             Notice("Pokemon deposited.");
         }
     }
-    if (keys & B_BUTTON)
-        SetUi(UI_MENU);
     sUiDirty = TRUE;
+}
+static int DirectionFromKeys(u16 keys) {
+    if (keys & DPAD_UP) return 0;
+    if (keys & DPAD_DOWN) return 1;
+    if (keys & DPAD_LEFT) return 2;
+    if (keys & DPAD_RIGHT) return 3;
+    return -1;
 }
 static void Input(void) {
     u16 keys, repeat, ime = REG_IME;
@@ -1277,6 +1415,18 @@ static void Input(void) {
     sPressed = sRepeated = 0;
     REG_IME = ime;
     int max = 0;
+    if (sUi != UI_WORLD && sUiDirectionGate) {
+        if (!(sHeld & (DPAD_UP|DPAD_DOWN|DPAD_LEFT|DPAD_RIGHT))) sUiDirectionGate = FALSE;
+        keys &= ~(DPAD_UP|DPAD_DOWN|DPAD_LEFT|DPAD_RIGHT);
+        repeat &= ~(DPAD_UP|DPAD_DOWN|DPAD_LEFT|DPAD_RIGHT);
+    }
+    if (sNoticeFrames && sNoticeModal) {
+        if (keys & (A_BUTTON|B_BUTTON)) {
+            sNoticeFrames = 0; sNoticeModal = FALSE; sUiDirty = TRUE;
+        }
+        return;
+    }
+    if (keys && sNoticeFrames) {sNoticeFrames=0;sUiDirty=TRUE;}
     if (sUi == UI_SAVE) {
         DoSave();
         return;
@@ -1295,7 +1445,7 @@ static void Input(void) {
                 PlayTimeCounter_Start();
                 CB2_PwResume();
             } else
-                SetUi(UI_SEED);
+                OpenUi(UI_SEED);
         }
         return;
     }
@@ -1304,15 +1454,16 @@ static void Input(void) {
             sDigit = (sDigit + 7) % 8;
         if (repeat & DPAD_RIGHT)
             sDigit = (sDigit + 1) % 8;
-        if (repeat & DPAD_UP)
-            sSeed += 1u << ((7 - sDigit) * 4);
-        if (repeat & DPAD_DOWN)
-            sSeed -= 1u << ((7 - sDigit) * 4);
+        if (repeat & (DPAD_UP|DPAD_DOWN)) {
+            u8 shift=(7-sDigit)*4;
+            u32 digit=((sSeed>>shift)+(repeat&DPAD_UP?1:15))&15;
+            sSeed=(sSeed&~(15u<<shift))|(digit<<shift);
+        }
         if (keys & R_BUTTON)
             sSeed = Random32() ^ sFrames;
         if (keys & B_BUTTON) {
-            sUi = UI_TITLE;
-            sSelection = sHasSave ? 0 : 1;
+            BackUi();
+            return;
         }
         if (keys & START_BUTTON) {
             StartNew();
@@ -1322,7 +1473,8 @@ static void Input(void) {
             sUiDirty = TRUE;
         return;
     }
-    if (sUi == UI_BUILD) {
+    if (sUi == UI_BUILD || sUi == UI_PLACE) {
+        if (keys & (B_BUTTON | START_BUTTON)) {BackUi();return;}
         if (repeat & DPAD_LEFT && sCursorX > -6)
             sCursorX--;
         if (repeat & DPAD_RIGHT && sCursorX < 6)
@@ -1331,16 +1483,15 @@ static void Input(void) {
             sCursorY--;
         if (repeat & DPAD_DOWN && sCursorY < 3)
             sCursorY++;
-        if (keys & L_BUTTON)
+        if (sUi == UI_BUILD && keys & L_BUTTON)
             sBuild = (sBuild + ARRAY_COUNT(sBuildTiles) - 1) % ARRAY_COUNT(sBuildTiles);
-        if (keys & R_BUTTON)
+        if (sUi == UI_BUILD && keys & R_BUTTON)
             sBuild = (sBuild + 1) % ARRAY_COUNT(sBuildTiles);
-        if (keys & A_BUTTON)
-            Place();
-        if (keys & SELECT_BUTTON)
+        if (keys & A_BUTTON) {
+            if (sUi == UI_PLACE) DropPartner(); else Place();
+        }
+        if (sUi == UI_BUILD && keys & SELECT_BUTTON)
             Dismantle();
-        if (keys & (B_BUTTON | START_BUTTON))
-            SetUi(UI_WORLD);
         if (keys)
             sUiDirty = TRUE;
         return;
@@ -1350,18 +1501,25 @@ static void Input(void) {
         struct PwEncounter e;
         if (sMoveFrames) {
             sPendingKeys |= keys & (A_BUTTON | START_BUTTON | SELECT_BUTTON | L_BUTTON | R_BUTTON);
+            if ((keys & (A_BUTTON|R_BUTTON)) && DirectionFromKeys(sHeld)>=0) sPendingFacing=DirectionFromKeys(sHeld);
             return;
         }
         keys |= sPendingKeys; sPendingKeys = 0;
+        dir = DirectionFromKeys(sHeld);
+        if (keys & (A_BUTTON|R_BUTTON)) {
+            if (sPendingFacing >= 0) WORLD.facing = sPendingFacing;
+            else if (dir >= 0) WORLD.facing = dir;
+        }
+        sPendingFacing = -1;
         if (keys & START_BUTTON) {
-            SetUi(UI_MENU);
+            OpenUi(UI_MENU);
             return;
         }
         if (keys & SELECT_BUTTON) {
-            SetUi(UI_MAP);
+            OpenUi(UI_MAP);
             return;
         }
-        if (keys & L_BUTTON) {SetUi(UI_FIELD); return;}
+        if (keys & L_BUTTON) {OpenUi(UI_FIELD); return;}
         if (keys & R_BUTTON) {
             BeginBuild();
             return;
@@ -1370,17 +1528,12 @@ static void Input(void) {
             Interact();
             return;
         }
-        if (sHeld & DPAD_UP)
-            dir = 0;
-        else if (sHeld & DPAD_DOWN)
-            dir = 1;
-        else if (sHeld & DPAD_LEFT)
-            dir = 2;
-        else if (sHeld & DPAD_RIGHT)
-            dir = 3;
-        if (dir < 0)
-            return;
-        WORLD.facing = dir;
+        if (dir < 0) {sTurnFrames=0;sWalking=FALSE;return;}
+        if (WORLD.facing != dir) {
+            WORLD.facing=dir;
+            if (!sWalking) {sTurnFrames=4;return;}
+        }
+        if (sTurnFrames) {sTurnFrames--;return;}
         a = ActorAt(WORLD.playerX + sDx[dir], WORLD.playerY + sDy[dir]);
         if (a >= 0) {
             if (!sWild[a].friendly && !sEncounterCooldown) {
@@ -1390,6 +1543,7 @@ static void Input(void) {
         }
         if (ResidentAt(WORLD.playerX+sDx[dir],WORLD.playerY+sDy[dir])>=0) return;
         if (PwGame_MoveWithSurf(&sGame, dir, FindWorker(FIELD_SURF)>=0)) {
+            sWalking=TRUE;
             int oldX=WORLD.playerX-sDx[dir],oldY=WORLD.playerY-sDy[dir];
             sFollowOffsetX=(sFollowX-oldX)*16; sFollowOffsetY=(sFollowY-oldY)*16;
             sFollowDir=oldX>sFollowX?3:oldX<sFollowX?2:oldY<sFollowY?0:1;
@@ -1405,10 +1559,6 @@ static void Input(void) {
                 BeginBattle(e.species, e.level);
                 return;
             }
-            if (WORLD.steps % 48 == 0) {
-                SpawnActors();
-                ReloadActorGfx();
-            }
         }
         return;
     }
@@ -1416,10 +1566,17 @@ static void Input(void) {
         StorageInput(repeat | keys);
         return;
     }
+    if (sUi == UI_FIELD) {
+        if (keys & (B_BUTTON|L_BUTTON)) {BackUi();return;}
+        if (keys & R_BUTTON) {BeginBuild();return;}
+        if (keys & A_BUTTON) {SetUi(UI_WORLD);Interact();return;}
+    }
+    if (sUi == UI_MAP && keys & SELECT_BUTTON) {BackUi();return;}
     if (keys & B_BUTTON) {
-        SetUi(sUi == UI_MENU || sUi == UI_WILD || sUi == UI_RESIDENT || sUi == UI_FIELD ? UI_WORLD : UI_MENU);
+        BackUi();
         return;
     }
+    if (keys & START_BUTTON && sUi != UI_PARTY) {SetUi(UI_WORLD);return;}
     if (sUi == UI_MENU)
         max = 9;
     else if (sUi == UI_CRAFT)
@@ -1439,7 +1596,7 @@ static void Input(void) {
             sUiDirty = TRUE;
         }
     }
-    if (sUi == UI_PARTY && keys & START_BUTTON) {DropPartner();return;}
+    if (sUi == UI_PARTY && keys & START_BUTTON) {BeginPlacement();return;}
     if (sUi == UI_PARTY && keys & SELECT_BUTTON) {
         struct Pokemon temp = PARTY[0];
         PARTY[0] = PARTY[sSelection];
@@ -1459,7 +1616,7 @@ static void Input(void) {
         if (next == UI_BUILD)
             BeginBuild();
         else {
-            SetUi(next);
+            OpenUi(next);
             sPartySlot = 0;
         }
     } else if (sUi == UI_CRAFT)
@@ -1469,7 +1626,7 @@ static void Input(void) {
     else if (sUi == UI_PARTY) {
         SetVBlankCallback(NULL);
         FreeAllWindowBuffers();
-        ShowPokemonSummaryScreen(SUMMARY_MODE_NORMAL, PARTY, sSelection, PARTY_COUNT - 1, CB2_PwResume);
+        ShowPokemonSummaryScreen(SUMMARY_MODE_NORMAL, PARTY, sSelection, PARTY_COUNT - 1, CB2_PwSummaryReturn);
     } else if (sUi == UI_OPTIONS) {
         if (sSelection == 0) {
             WORLD.music ^= 1;
@@ -1480,14 +1637,14 @@ static void Input(void) {
             sUiDirty = TRUE;
         } else {
             sSaveAndTitle = TRUE;
-            SetUi(UI_SAVE);
+            OpenUi(UI_SAVE);
         }
     }
 }
 static void MainLoop(void) {
     sFrames++;
     if (sEncounterCooldown) sEncounterCooldown--;
-    if (sNoticeFrames && !--sNoticeFrames) sUiDirty = TRUE;
+    if (sNoticeFrames && !sNoticeModal && !--sNoticeFrames) sUiDirty = TRUE;
     if (sMoveFrames) {
         sMoveFrames--;
         if (sScrollX > 0) sScrollX -= sMoveSpeed;
@@ -1499,8 +1656,8 @@ static void MainLoop(void) {
     if (sFollowOffsetY>0) sFollowOffsetY-=sMoveSpeed; else if(sFollowOffsetY<0) sFollowOffsetY+=sMoveSpeed;
     Input();
     if (gMain.callback2 != MainLoop) return;
-    if (sUi == UI_WORLD || sUi == UI_BUILD) {PwGame_Stream(&sGame, 2); TickWorld();}
-    if (sUi == UI_WORLD) Wander();
+    if (sUi == UI_WORLD || sUi == UI_BUILD || sUi == UI_PLACE) {PwGame_Stream(&sGame, 2); TickWorld();}
+    if (sUi == UI_WORLD) {Wander();if (sFrames%24==0) RefreshWildPopulation();}
     if (sWorldDirty || !sRenderValid || sRenderX != WORLD.playerX || sRenderY != WORLD.playerY) DrawWorld();
     ApplyCamera();
     if (sUiDirty) DrawUI();
